@@ -22,6 +22,6 @@ class JClassUsageFinder {
             throw RuntimeException("archive is not supported")
         }
         disassemble.disassemble()
-        return disassemble.getSrcDir()
+        return disassemble.getOutput()
     }
 }

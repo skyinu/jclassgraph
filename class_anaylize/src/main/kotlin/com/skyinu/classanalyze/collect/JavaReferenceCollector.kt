@@ -1,39 +1,36 @@
 package com.skyinu.classanalyze.collect
 
-import com.github.javaparser.StaticJavaParser
 import com.skyinu.classanalyze.model.ClassNode
-import java.io.File
+import jdk.internal.org.objectweb.asm.ClassReader
+import net.lingala.zip4j.ZipFile
+import net.lingala.zip4j.model.FileHeader
+import java.io.InputStream
 import java.util.*
 
-class JavaReferenceCollector(private val srcDir: String) {
+
+class JavaReferenceCollector(private val output: String) {
 
     private val referenceHashMap = HashMap<String, ClassNode>()
 
     companion object {
-        private const val JAVA_SUFFIX = ".java"
+        private const val CLASS_SUFFIX = ".class"
     }
 
     fun collect() {
-        travelDir()
+        travelJar()
     }
 
-    private fun travelDir() {
-        val srcDirFile = File(srcDir)
-        srcDirFile.walk()
-            .filter { it.isFile }
-            .filter { it.name.endsWith(JAVA_SUFFIX) }
-            .forEach {
-                val className = getClassName(it, srcDir)
-                println("handle class = $className")
-                parseReference(it, className)
-            }
+    private fun travelJar() {
+        val jarFile = ZipFile(output)
+        val fileHeaders = jarFile.fileHeaders
+        fileHeaders.stream().filter { it.fileName.endsWith(CLASS_SUFFIX) }.forEach { fileHeader: FileHeader ->
+            val classStream = jarFile.getInputStream(fileHeader)
+            println("handle class = " + fileHeader.fileName)
+            parseReference(classStream)
+        }
     }
 
-    private fun parseReference(classFile: File, className: String) {
-        val javaParser = StaticJavaParser.parse(classFile)
-    }
-
-    private fun getClassName(classFile: File, itemSrc: String): String {
-        return classFile.absolutePath.substring(itemSrc.length + 1).replace(File.separator, ".")
+    private fun parseReference(classStream: InputStream) {
+        val reader = ClassReader(classStream)
     }
 }
