@@ -1,5 +1,6 @@
 package com.skyinu.classanalyze.collect
 
+import com.github.javaparser.StaticJavaParser
 import com.skyinu.classanalyze.model.ClassNode
 import java.io.File
 import java.util.*
@@ -29,6 +30,7 @@ class JavaReferenceCollector(private val srcDir: String) {
     }
 
     private fun parseReference(classFile: File, className: String) {
+        val javaParser = StaticJavaParser.parse(classFile)
     }
 
     private fun getClassName(classFile: File, itemSrc: String): String {
