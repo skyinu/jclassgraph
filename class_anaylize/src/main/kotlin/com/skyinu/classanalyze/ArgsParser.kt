@@ -1,12 +1,8 @@
 package com.skyinu.classanalyze
 
 import com.skyinu.classanalyze.model.ArgsModel
-import org.apache.commons.cli.CommandLine
-import org.apache.commons.cli.CommandLineParser
-import org.apache.commons.cli.DefaultParser
-import org.apache.commons.cli.Options
+import org.apache.commons.cli.*
 import java.io.File
-import java.lang.RuntimeException
 
 
 class ArgsParser {
@@ -40,6 +36,10 @@ class ArgsParser {
             outputDir = File(cmd.getOptionValue(ARGS_KEY_OUTPUT))
         }
         if (rootClass.isNullOrEmpty() || archiveFile == null) {
+            val header = "please input the required options"
+            val footer = ""
+            val formatter = HelpFormatter()
+            formatter.printHelp("classanalyze", header, commandOptions, footer, true)
             throw RuntimeException("key option not set")
         }
         return ArgsModel(archiveFile, rootClass, outputDir)
