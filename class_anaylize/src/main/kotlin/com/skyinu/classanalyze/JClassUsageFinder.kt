@@ -10,7 +10,7 @@ class JClassUsageFinder {
         val argsModel = ArgsParser().parseArgs(args)
         println("options is $argsModel")
         val srcDir = disassembleArchive(argsModel)
-        val collector = JavaReferenceCollector(srcDir)
+        val collector = JavaReferenceCollector(argsModel.analyzeParams, srcDir)
         println("start collect reference")
         collector.collect()
     }
