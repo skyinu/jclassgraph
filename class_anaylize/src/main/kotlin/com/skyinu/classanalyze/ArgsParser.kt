@@ -13,6 +13,7 @@ class ArgsParser {
         private const val ARGS_KEY_ARCHIVE = "a"
         private const val ARGS_KEY_OUTPUT = "o"
         private const val ARGS_KEY_ANALYZE_PARAMS = "p"
+        private const val ARGS_KEY_NOT_FILTER_OFFICIAL = "off_filter"
     }
 
     init {
@@ -20,6 +21,8 @@ class ArgsParser {
         commandOptions.addOption(ARGS_KEY_ROOT_CLASS, true, "java class which will be analyzed")
         commandOptions.addOption(ARGS_KEY_OUTPUT, true, "build output dir")
         commandOptions.addOption(ARGS_KEY_ANALYZE_PARAMS, false, "should analysis method parameters")
+        commandOptions.addOption(ARGS_KEY_NOT_FILTER_OFFICIAL, false, "shouldn't ignore official class")
+
     }
 
     fun parseArgs(args: Array<String>): ArgsModel {
@@ -29,6 +32,7 @@ class ArgsParser {
         var archiveFile: File? = null
         var outputDir: File = File(".")
         var shouldAnalyzeParams = false
+        var shouldIgnoreOfficial = true
         if (cmd.hasOption(ARGS_KEY_ROOT_CLASS)) {
             rootClass = cmd.getOptionValue(ARGS_KEY_ROOT_CLASS)
         }
@@ -41,6 +45,9 @@ class ArgsParser {
         if (cmd.hasOption(ARGS_KEY_ANALYZE_PARAMS)) {
             shouldAnalyzeParams = true
         }
+        if (cmd.hasOption(ARGS_KEY_NOT_FILTER_OFFICIAL)) {
+            shouldIgnoreOfficial = false
+        }
         if (rootClass.isNullOrEmpty() || archiveFile == null) {
             val header = "please input the required options"
             val footer = ""
@@ -48,6 +55,6 @@ class ArgsParser {
             formatter.printHelp("classanalyze", header, commandOptions, footer, true)
             throw RuntimeException("key option not set")
         }
-        return ArgsModel(archiveFile, rootClass, outputDir, shouldAnalyzeParams)
+        return ArgsModel(archiveFile, rootClass, outputDir, shouldAnalyzeParams, shouldIgnoreOfficial)
     }
 }

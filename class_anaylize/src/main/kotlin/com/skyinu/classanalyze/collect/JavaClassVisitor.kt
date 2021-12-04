@@ -10,10 +10,12 @@ import java.util.HashMap
 class JavaClassVisitor(
     api: Int,
     private val referenceHashMap: HashMap<String, ClassNode>,
-    private val analyzeParams: Boolean
+    private val analyzeParams: Boolean,
+    private val shouldIgnoreOfficial: Boolean
 ) : ClassVisitor(api) {
     private var className = ""
     private lateinit var currentNode: ClassNode
+    private var ignored = false
     override fun visit(
         version: Int,
         access: Int,
@@ -24,15 +26,17 @@ class JavaClassVisitor(
     ) {
         super.visit(version, access, name, signature, superName, interfaces)
         this.className = ClassUtils.classPathToName(name!!)
+        if (shouldIgnoreOfficial && ClassUtils.shouldFilter(className)) {
+            ignored = true
+            return
+        }
         val rootNode = createNode(name)
         currentNode = rootNode
         val superNode = createNode(superName!!)
-        rootNode.addOutClass(superNode)
-        superNode.addInClass(rootNode)
+        ClassUtils.bindClassNode(rootNode, superNode)
         interfaces?.forEach {
             val interfaceNode = createNode(it)
-            rootNode.addOutClass(interfaceNode)
-            interfaceNode.addInClass(rootNode)
+            ClassUtils.bindClassNode(rootNode, interfaceNode)
         }
     }
 
@@ -43,7 +47,7 @@ class JavaClassVisitor(
         signature: String?,
         exceptions: Array<out String>?
     ): MethodVisitor? {
-        if (!className.contains("MemoryFileParser")) {
+        if (ignored) {
             return null
         }
         signature?.let {
@@ -51,7 +55,7 @@ class JavaClassVisitor(
             signatureReader.accept(JavaSignatureVisitor())
         }
         val visitor = super.visitMethod(access, name, descriptor, signature, exceptions)
-        return JavaMethodVisitor(visitor, referenceHashMap, className, name!!, analyzeParams)
+        return JavaMethodVisitor(visitor, referenceHashMap, className, name!!, analyzeParams, shouldIgnoreOfficial)
     }
 
     inner class JavaSignatureVisitor() : SignatureVisitor(Opcodes.ASM5) {
@@ -59,8 +63,10 @@ class JavaClassVisitor(
         override fun visitClassType(name: String?) {
             super.visitClassType(name)
             val sigClass = createNode(name!!)
-            currentNode.addOutClass(sigClass)
-            sigClass.addInClass(currentNode)
+            if (sigClass.nodeName() == className) {
+                return
+            }
+            ClassUtils.bindClassNode(currentNode, sigClass)
         }
     }
 

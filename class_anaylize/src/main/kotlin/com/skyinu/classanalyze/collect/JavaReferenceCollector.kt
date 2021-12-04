@@ -11,6 +11,7 @@ import java.util.*
 
 class JavaReferenceCollector(
     private val analyzeParams: Boolean,
+    private val shouldIgnoreOfficial: Boolean,
     private val output: String
 ) {
 
@@ -37,6 +38,13 @@ class JavaReferenceCollector(
 
     private fun parseReference(classStream: InputStream) {
         val reader = ClassReader(classStream)
-        reader.accept(JavaClassVisitor(Opcodes.ASM5, referenceHashMap, analyzeParams), 0)
+        reader.accept(
+            JavaClassVisitor(
+                Opcodes.ASM5, referenceHashMap,
+                analyzeParams, shouldIgnoreOfficial
+            ), 0
+        )
     }
+
+    fun getAllReferenceMap() = referenceHashMap
 }

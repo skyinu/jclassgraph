@@ -12,7 +12,8 @@ class JavaMethodVisitor(
     private val referenceHashMap: HashMap<String, ClassNode>,
     private val className: String,
     private val methodName: String,
-    private val analyzeParams: Boolean
+    private val analyzeParams: Boolean,
+    private val shouldIgnoreOfficial: Boolean
 ) :
     MethodVisitor(Opcodes.ASM5, mv) {
 
@@ -20,24 +21,28 @@ class JavaMethodVisitor(
 
     override fun visitMethodInsn(opcode: Int, owner: String?, name: String?, desc: String?, itf: Boolean) {
         super.visitMethodInsn(opcode, owner, name, desc, itf)
-        val callClass = createNode(owner!!)
-        currentClassNode.addOutClass(callClass)
-        callClass.addInClass(currentClassNode)
+        val ownerName = ClassUtils.classPathToName(owner!!)
+        if (shouldIgnoreOfficial && ClassUtils.shouldFilter(ownerName)) {
+            return
+        }
+        val callClass = createNode(owner)
+        if (ownerName == className) {
+            return
+        }
+        ClassUtils.bindClassNode(currentClassNode, callClass)
         if (analyzeParams) {
             val argumentType = Type.getArgumentTypes(desc)
             argumentType.forEach {
                 val argumentNode = createNodeFromType(it)
                 argumentNode?.let {
-                    currentClassNode.addOutClass(argumentNode)
-                    argumentNode.addInClass(currentClassNode)
+                    ClassUtils.bindClassNode(currentClassNode, argumentNode)
                 }
 
             }
             val returnType = Type.getReturnType(desc)
             val returnNode = createNodeFromType(returnType)
             returnNode?.let {
-                currentClassNode.addOutClass(returnNode)
-                returnNode.addInClass(currentClassNode)
+                ClassUtils.bindClassNode(currentClassNode, returnNode)
             }
         }
     }
