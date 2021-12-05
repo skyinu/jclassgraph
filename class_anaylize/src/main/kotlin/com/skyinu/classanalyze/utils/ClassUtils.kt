@@ -5,13 +5,13 @@ import java.io.File
 
 object ClassUtils {
     private val OFFICIAL_PACKAGE_PREFIXS = arrayOf("java.", "kotlin.", "android.", "androidx.")
-     var shouldIgnoreOfficial = false
+    var shouldIgnoreOfficial = false
     fun classPathToName(classPath: String): String {
         return classPath.replace(File.separator, ".").replace("/", ".")
     }
 
     fun bindClassNode(source: ClassNode, target: ClassNode) {
-        if (shouldIgnoreOfficial && !shouldFilter(target.nodeName())) {
+        if (shouldIgnoreOfficial && !shouldFilter(target.nodeName()) && source.nodeName() != target.nodeName()) {
             source.addOutClass(target)
             target.addInClass(source)
         }

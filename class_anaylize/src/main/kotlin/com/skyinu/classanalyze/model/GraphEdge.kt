@@ -15,6 +15,12 @@ class GraphEdge {
     @SerializedName("target")
     var target: String = ""
 
+    @SerializedName("type")
+    var type: String = "arrow"
+
+    @SerializedName("size")
+    var size: Float = 10F
+
     @SerializedName("color")
     var color = "#f0f"
 }

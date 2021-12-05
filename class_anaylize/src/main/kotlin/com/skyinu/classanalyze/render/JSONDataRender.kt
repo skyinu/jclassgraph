@@ -26,6 +26,8 @@ class JSONDataRender(
         private const val IN_NODE_ID = "_in"
         private const val CENTER_X = 500F
         private const val CENTER_Y = 500F
+        private const val MAX_EDGE_SIZE = 10F
+        private const val MIN_EDGE_SIZE = 3F
 
         //https://uigradients.com/#Windy
         private val LINEAR_COLORS = arrayOf<Pair<String, String>>(
@@ -39,6 +41,7 @@ class JSONDataRender(
     private val visitedHashMap = HashMap<String, Boolean>()
     private val levelNodeCount = HashMap<Int, Int>()
     private val levelNodeSeq = HashMap<Int, Int>()
+    private val visitedNodeSeq = HashMap<String, Boolean>()
     private val visitQueue: Queue<VisitModel> = ArrayDeque<VisitModel>()
     fun render() {
         val rootNode = referenceHashMap[argsModel.rootClass]
@@ -49,8 +52,8 @@ class JSONDataRender(
 
         bfsVisit(rootNode, true, true)
         bfsVisit(rootNode, true, false)
-        bfsVisit(rootNode, false,true)
-        bfsVisit(rootNode, false,false)
+        bfsVisit(rootNode, false, true)
+        bfsVisit(rootNode, false, false)
         extractFEResource()
         val graphJson = GsonBuilder().setPrettyPrinting().create().toJson(graph)
         val os = FileOutputStream(
@@ -67,6 +70,7 @@ class JSONDataRender(
         visitedHashMap.clear()
         visitQueue.clear()
         visitQueue.offer(VisitModel(rootNode, 0, 0))
+        visitedNodeSeq.clear()
         if (countMode) {
             levelNodeSeq.clear()
             levelNodeCount.clear()
@@ -107,7 +111,11 @@ class JSONDataRender(
             val nodeSeqAnchor = levelNodeSeq.getOrDefault(visitModel.depth, 0)
             val seq = levelCount - nodeSeqAnchor
             if (!countMode) {
-                levelNodeSeq[visitModel.depth] = nodeSeqAnchor - 1
+                //avoid calculate duplicated
+                if (!visitedNodeSeq.getOrDefault(itemNode.nodeName(), false)) {
+                    levelNodeSeq[visitModel.depth] = nodeSeqAnchor - 1
+                    visitedNodeSeq[itemNode.nodeName()] = true
+                }
                 val graphEdge =
                     createGraphEdge(node, itemNode, visitModel.depth, seq, levelCount, visitOut)
                 graph.edges.add(graphEdge)
@@ -126,10 +134,13 @@ class JSONDataRender(
         graphNode.label = node.nodeName()
         graphNode.size = Math.abs(50 - depth * 10 * Math.random()).roundToInt()
         graphNode.level = depth
+        graphNode.level_count = levelTotal
+        graphNode.out = visitOut
+        graphNode.seq = seq
         val step = if (visitOut) {
-            10
+            25
         } else {
-            20
+            45
         }
         val seqNumber = if (visitOut) {
             (seq + 1) % levelTotal
@@ -143,7 +154,11 @@ class JSONDataRender(
             graphNode.y = CENTER_Y.roundToInt()
         }
         if (depth == 0) {
-            graphNode.color = "#f00"
+            if (visitOut) {
+                graphNode.color = "#f00"
+            } else {
+                graphNode.color = "#00f"
+            }
         } else {
             if (visitOut) {
                 graphNode.color = "#f0f"
@@ -166,7 +181,7 @@ class JSONDataRender(
     ) {
         val angel = seq * 1.0F / levelTotal * 360 * Math.PI / 180F
         graphNode.angel = seq * 1.0F / levelTotal * 360
-        graphNode.seq = seq
+        graphNode.cal_seq = seq
         if (depth % 2 == 0) {
             graphNode.x = (CENTER_X + (depth * step) * cos(angel)).roundToInt()
             graphNode.y = (CENTER_Y + (depth * step) * sin(angel)).roundToInt()
@@ -193,12 +208,13 @@ class JSONDataRender(
             IN_NODE_ID
         }
         if (visitOut) {
-            graphEdge.target = parent.nodeName() + nodeSuffix
-            graphEdge.source = child.nodeName() + nodeSuffix
-        } else {
             graphEdge.source = parent.nodeName() + nodeSuffix
             graphEdge.target = child.nodeName() + nodeSuffix
+        } else {
+            graphEdge.source = child.nodeName() + nodeSuffix
+            graphEdge.target = parent.nodeName() + nodeSuffix
         }
+        graphEdge.size = MIN_EDGE_SIZE.coerceAtLeast(MAX_EDGE_SIZE - depth * 2)
         val colorPair = LINEAR_COLORS[depth % LINEAR_COLORS.size]
         graphEdge.color = getColor(colorPair.first, colorPair.second, seq * 1.0 / levelTotal)
         return graphEdge

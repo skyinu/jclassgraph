@@ -24,9 +24,20 @@ class GraphNode {
     @SerializedName("debug_level")
     var level = 0
 
+    @SerializedName("debug_level_count")
+    var level_count = 0
+
     @SerializedName("debug_angel")
     var angel = 0F
 
     @SerializedName("debug_seq")
     var seq = 0
+
+    @SerializedName("debug_cal_seq")
+    var cal_seq = 0
+
+    @SerializedName("debug_out")
+    var out = true
+
+
 }
