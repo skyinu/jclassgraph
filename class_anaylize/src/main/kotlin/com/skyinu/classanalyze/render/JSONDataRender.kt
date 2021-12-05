@@ -2,6 +2,7 @@ package com.skyinu.classanalyze.render
 
 import com.google.gson.GsonBuilder
 import com.skyinu.classanalyze.model.*
+import com.skyinu.classanalyze.utils.FileUtil
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileOutputStream
@@ -18,6 +19,8 @@ class JSONDataRender(
 ) {
 
     companion object {
+        private const val FE_PROJECT_PATH = "fe"
+        private const val FE_PROJECT_SCRIPT_PATH = "script"
         private const val OUT_JSON_NAME = "graph.js"
         private const val CENTER_X = 500F
         private const val CENTER_Y = 500F
@@ -41,8 +44,13 @@ class JSONDataRender(
         }
         visitQueue.offer(VisitModel(rootNode, 0, 0, 1))
         bfsVisit()
+        extractFEResource()
         val graphJson = GsonBuilder().setPrettyPrinting().create().toJson(graph)
-        val os = FileOutputStream(argsModel.outputDir.absolutePath + File.separator + OUT_JSON_NAME)
+        val os = FileOutputStream(
+            argsModel.outputDir.absolutePath +
+                    File.separator + FE_PROJECT_PATH + File.separator +
+                    FE_PROJECT_SCRIPT_PATH + File.separator + OUT_JSON_NAME
+        )
         val bw = BufferedWriter(OutputStreamWriter(os))
         bw.write("let graphJson = $graphJson")
         bw.close()
@@ -137,6 +145,14 @@ class JSONDataRender(
             ret[i] = rgb.substring(i * 2 + 1, i * 2 + 2 + 1).toInt(16)
         }
         return ret
+    }
+
+    private fun extractFEResource() {
+        FileUtil.loadRecourseFromJarByFolder(
+            "/$FE_PROJECT_PATH",
+            argsModel.outputDir.absolutePath,
+            this.javaClass
+        )
     }
 
     data class VisitModel(val node: ClassNode, val depth: Int, val seq: Int, val levelTotal: Int)
