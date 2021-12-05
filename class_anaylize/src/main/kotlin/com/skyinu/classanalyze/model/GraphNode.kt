@@ -4,7 +4,7 @@ import com.google.gson.annotations.SerializedName
 
 class GraphNode {
     @SerializedName("id")
-    var className: String = ""
+    var id: String = ""
 
     @SerializedName("label")
     var label: String = ""
@@ -26,4 +26,7 @@ class GraphNode {
 
     @SerializedName("debug_angel")
     var angel = 0F
+
+    @SerializedName("debug_seq")
+    var seq = 0
 }

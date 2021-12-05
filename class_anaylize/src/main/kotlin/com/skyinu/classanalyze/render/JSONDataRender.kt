@@ -8,6 +8,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStreamWriter
 import java.util.*
+import kotlin.collections.HashMap
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -22,6 +23,7 @@ class JSONDataRender(
         private const val FE_PROJECT_PATH = "fe"
         private const val FE_PROJECT_SCRIPT_PATH = "script"
         private const val OUT_JSON_NAME = "graph.js"
+        private const val IN_NODE_ID = "_in"
         private const val CENTER_X = 500F
         private const val CENTER_Y = 500F
 
@@ -35,6 +37,8 @@ class JSONDataRender(
 
     private val graph = Graph()
     private val visitedHashMap = HashMap<String, Boolean>()
+    private val levelNodeCount = HashMap<Int, Int>()
+    private val levelNodeSeq = HashMap<Int, Int>()
     private val visitQueue: Queue<VisitModel> = ArrayDeque<VisitModel>()
     fun render() {
         val rootNode = referenceHashMap[argsModel.rootClass]
@@ -42,8 +46,11 @@ class JSONDataRender(
             println("no class found here")
             return
         }
-        visitQueue.offer(VisitModel(rootNode, 0, 0, 1))
-        bfsVisit()
+
+        bfsVisit(rootNode, true, true)
+        bfsVisit(rootNode, true, false)
+        bfsVisit(rootNode, false,true)
+        bfsVisit(rootNode, false,false)
         extractFEResource()
         val graphJson = GsonBuilder().setPrettyPrinting().create().toJson(graph)
         val os = FileOutputStream(
@@ -56,7 +63,14 @@ class JSONDataRender(
         bw.close()
     }
 
-    private fun bfsVisit() {
+    private fun bfsVisit(rootNode: ClassNode, visitOut: Boolean, countMode: Boolean) {
+        visitedHashMap.clear()
+        visitQueue.clear()
+        visitQueue.offer(VisitModel(rootNode, 0, 0))
+        if (countMode) {
+            levelNodeSeq.clear()
+            levelNodeCount.clear()
+        }
         while (visitQueue.isNotEmpty()) {
             val visitModel = visitQueue.poll()
             val node = visitModel.node
@@ -64,30 +78,78 @@ class JSONDataRender(
                 continue
             }
             visitedHashMap[node.nodeName()] = true
-            val graphNode = createGraphNode(node, visitModel.depth, visitModel.seq, visitModel.levelTotal)
-            graph.nodes.add(graphNode)
-            node.getOutClassList().forEachIndexed { index: Int, itemNode: ClassNode ->
-                val graphEdge = createGraphEdge(node, itemNode, visitModel.depth, index, node.getOutClassList().size)
-                graph.edges.add(graphEdge)
-                visitQueue.offer(VisitModel(itemNode, visitModel.depth + 1, index, node.getOutClassList().size))
+            val levelCount = levelNodeCount.getOrDefault(visitModel.depth, 0)
+            if (countMode) {
+                levelNodeCount[visitModel.depth] = levelCount + 1
+                levelNodeSeq[visitModel.depth] = levelCount + 1
+            } else {
+                val graphNode = createGraphNode(node, visitModel.depth, visitModel.seq, levelCount, visitOut)
+                graph.nodes.add(graphNode)
             }
+            val children = if (visitOut) {
+                node.getOutClassList()
+            } else {
+                node.getInClassList()
+            }
+            innerVisit(node, visitModel, children, visitOut, countMode)
         }
     }
 
-    private fun createGraphNode(node: ClassNode, depth: Int, seq: Int, levelTotal: Int): GraphNode {
+    private fun innerVisit(
+        node: ClassNode,
+        visitModel: VisitModel,
+        children: List<ClassNode>,
+        visitOut: Boolean,
+        countMode: Boolean
+    ) {
+        val levelCount = levelNodeCount.getOrDefault(visitModel.depth, 0)
+        children.forEachIndexed { index: Int, itemNode: ClassNode ->
+            val nodeSeqAnchor = levelNodeSeq.getOrDefault(visitModel.depth, 0)
+            val seq = levelCount - nodeSeqAnchor
+            if (!countMode) {
+                levelNodeSeq[visitModel.depth] = nodeSeqAnchor - 1
+                val graphEdge =
+                    createGraphEdge(node, itemNode, visitModel.depth, seq, levelCount, visitOut)
+                graph.edges.add(graphEdge)
+            }
+            visitQueue.offer(VisitModel(itemNode, visitModel.depth + 1, seq))
+        }
+    }
+
+    private fun createGraphNode(node: ClassNode, depth: Int, seq: Int, levelTotal: Int, visitOut: Boolean): GraphNode {
         val graphNode = GraphNode()
-        graphNode.className = node.nodeName()
-        graphNode.label = graphNode.className
-        graphNode.size = depth + 1
+        graphNode.id = node.nodeName() + if (visitOut) {
+            ""
+        } else {
+            IN_NODE_ID
+        }
+        graphNode.label = node.nodeName()
+        graphNode.size = Math.abs(50 - depth * 10 * Math.random()).roundToInt()
         graphNode.level = depth
+        val step = if (visitOut) {
+            10
+        } else {
+            20
+        }
+        val seqNumber = if (visitOut) {
+            (seq + 1) % levelTotal
+        } else {
+            seq
+        }
         if (depth != 0) {
-            calculatePoint(graphNode, depth, 20, seq, levelTotal)
+            calculatePoint(graphNode, depth, step, seqNumber, levelTotal)
         } else {
             graphNode.x = CENTER_X.roundToInt()
             graphNode.y = CENTER_Y.roundToInt()
         }
         if (depth == 0) {
             graphNode.color = "#f00"
+        } else {
+            if (visitOut) {
+                graphNode.color = "#f0f"
+            } else {
+                graphNode.color = "#0ff"
+            }
         }
         return graphNode
     }
@@ -95,24 +157,48 @@ class JSONDataRender(
     /**
      * x=a+r*cosθ,y=b+r*sinθ
      */
-    private fun calculatePoint(graphNode: GraphNode, depth: Int, step: Int, seq: Int, levelTotal: Int) {
+    private fun calculatePoint(
+        graphNode: GraphNode,
+        depth: Int,
+        step: Int,
+        seq: Int,
+        levelTotal: Int
+    ) {
         val angel = seq * 1.0F / levelTotal * 360 * Math.PI / 180F
         graphNode.angel = seq * 1.0F / levelTotal * 360
+        graphNode.seq = seq
         if (depth % 2 == 0) {
             graphNode.x = (CENTER_X + (depth * step) * cos(angel)).roundToInt()
-            graphNode.y = (CENTER_X + (depth * step) * sin(angel)).roundToInt()
+            graphNode.y = (CENTER_Y + (depth * step) * sin(angel)).roundToInt()
         } else {
-            graphNode.y = (CENTER_X + (depth * step) * cos(angel)).roundToInt()
+            graphNode.y = (CENTER_Y + (depth * step) * cos(angel)).roundToInt()
             graphNode.x = (CENTER_X + (depth * step) * sin(angel)).roundToInt()
         }
     }
 
-    private fun createGraphEdge(parent: ClassNode, child: ClassNode, depth: Int, seq: Int, levelTotal: Int): GraphEdge {
+    private fun createGraphEdge(
+        parent: ClassNode,
+        child: ClassNode,
+        depth: Int,
+        seq: Int,
+        levelTotal: Int,
+        visitOut: Boolean
+    ): GraphEdge {
         val graphEdge = GraphEdge()
         graphEdge.id = parent.nodeName() + child.nodeName()
         graphEdge.label = graphEdge.id
-        graphEdge.source = parent.nodeName()
-        graphEdge.target = child.nodeName()
+        val nodeSuffix = if (visitOut) {
+            ""
+        } else {
+            IN_NODE_ID
+        }
+        if (visitOut) {
+            graphEdge.target = parent.nodeName() + nodeSuffix
+            graphEdge.source = child.nodeName() + nodeSuffix
+        } else {
+            graphEdge.source = parent.nodeName() + nodeSuffix
+            graphEdge.target = child.nodeName() + nodeSuffix
+        }
         val colorPair = LINEAR_COLORS[depth % LINEAR_COLORS.size]
         graphEdge.color = getColor(colorPair.first, colorPair.second, seq * 1.0 / levelTotal)
         return graphEdge
@@ -154,7 +240,5 @@ class JSONDataRender(
             this.javaClass
         )
     }
-
-    data class VisitModel(val node: ClassNode, val depth: Int, val seq: Int, val levelTotal: Int)
 
 }
